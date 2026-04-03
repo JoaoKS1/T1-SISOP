@@ -3,12 +3,12 @@ import java.util.ArrayList;
 public class Sistema implements GerenciadorMemoria {
 
     // T1-A Criaçao das variaveis de Gerenciamento de memoria - tamMem e tamPg
-    public int tamMem;
-    public int tamPg;
-    public int numFrames;
-    public ArrayList<Boolean> paginasUsadas = new ArrayList<>(tamPg);
+    public static int tamMem;
+    public static int tamPg;
+    public static int numFrames;
+    public  static ArrayList<Boolean> paginasUsadas = new ArrayList<>(tamPg);
 
-
+    // T1-A1.2
     @Override
     public ArrayList<Integer> aloca(int nroPalavrasASeremAlocadas) {
         if (nroPalavrasASeremAlocadas < numFrames) {
@@ -18,16 +18,16 @@ public class Sistema implements GerenciadorMemoria {
 
             // Verifica quantas páginas há disponíveis para alocar
             for (int i = 0; i < qtnPaginas; i++) {
-                if (paginasUsadas.get(i) == false) {
+                if (!paginasUsadas.get(i)) {
                     qtnTrue++;
                     paginasLivres.add(i);
                 }
             }
 
+
             // Verifica se o número de paginas livres é maior ou igual ao número de páginas requisitas, caso não, retorna vazio
             if (qtnTrue >= qtnPaginas) return paginasLivres;
 
-            return null;
             // devolve vetor -> tabela de paginas do processo  (convencionar). Deve existir função de carga que receve um nome de programa e uma tabela de paginas, lê as páginas e carrega na memoria --> esse função interna possui uma costante do tamanho do frame da página, quando carga sabe o tamanhoo e a tabela, ela pode carregar --- > O gerente processos tem que criar (retorna processo) e remover (remove processo), cria instancia de PCB {id, tabela de páginas, estado de execução....}
             // página é por processo -> tabela de página temos a página inicial e a final que será utilziado para desalocar o programa
             // SO tem que saber o estado de cada quadro, saber quem esta livre e quem esta ocupado (gerente de memoria precisa saber)
@@ -35,6 +35,7 @@ public class Sistema implements GerenciadorMemoria {
         return null;
     }
 
+    // T1-A1.2
     // A partir da posição do array de paginas a serem liberadas, desaloca (define como falso) a posição referente a ele.
     @Override
     public void desaloca(ArrayList<Integer> pagianasASeremDesalocadas) {
@@ -482,7 +483,18 @@ public class Sistema implements GerenciadorMemoria {
             hardWare = _hardware;
         }
 
-        private void loadProgram(Word[] posicao) {
+        private void loadProgram(Word[] posicao) { //Aloca sempre no inicio da memória
+            Word[] memoria = hardWare.memoria.posicao;
+            for (int i = 0; i < posicao.length; i++) {
+                memoria[i].opcode = posicao[i].opcode;
+                memoria[i].registradorA = posicao[i].registradorA;
+                memoria[i].registradorB = posicao[i].registradorB;
+                memoria[i].parametro = posicao[i].parametro;
+            }
+        }
+
+        private void loadProgram2(Word[] posicao, ArrayList<Integer> posicoes, int nroPalavrasASeremAlocadas ) { //Aloca sempre no inicio da memória
+            ArrayList<Integer> posicaoesParaAlocar = aloca(nroPalavrasASeremAlocadas);
             Word[] memoria = hardWare.memoria.posicao;
             for (int i = 0; i < posicao.length; i++) {
                 memoria[i].opcode = posicao[i].opcode;

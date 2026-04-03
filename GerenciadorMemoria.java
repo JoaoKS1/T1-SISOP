@@ -8,4 +8,5 @@ public interface GerenciadorMemoria {
     // Libera frames alocados
     void desaloca(ArrayList<Integer> paginasLivres);
 
+
 }
