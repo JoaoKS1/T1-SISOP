@@ -2,45 +2,78 @@ import java.util.ArrayList;
 
 public class Sistema implements GerenciadorMemoria {
 
-    // T1-A Criaçao das variaveis de Gerenciamento de memoria - tamMem e tamPg
+    /// T1-A Criaçao das variaveis de Gerenciamento de memoria - tamMem e tamPg
     public static int tamMem;
     public static int tamPg;
-    public static int numFrames;
-    public  static ArrayList<Boolean> paginasUsadas = new ArrayList<>(tamPg);
+    public static double numFrames;
+    public static int frame;
+    public static ArrayList<Boolean> paginasUsadas = new ArrayList<>(tamPg);
+    public static GerenciadorMemoriaPaginado gmp = new GerenciadorMemoriaPaginado(tamMem, tamPg);
 
-    // T1-A1.2
+    /// T1-A1.2 Gerenciador de memória responsável por proucurar as páginas livres e fornecer o tamanho dos frames para o GM paginado
     @Override
     public ArrayList<Integer> aloca(int nroPalavrasASeremAlocadas) {
         if (nroPalavrasASeremAlocadas < numFrames) {
-            int qtnPaginas = nroPalavrasASeremAlocadas / tamPg;
-            ArrayList<Integer> paginasLivres = new ArrayList<>();
-            int qtnTrue = 0;
 
-            // Verifica quantas páginas há disponíveis para alocar
-            for (int i = 0; i < qtnPaginas; i++) {
+            /// Pega prox valor mais alto se vier número double
+            double qtnPaginas = Math.ceil((double) nroPalavrasASeremAlocadas / tamPg);
+
+            /// Array que guarda quais páginas estão livres para serém usadas
+            ArrayList<Integer> paginasUsadasNoPrograma = new ArrayList<>();
+
+            /// Contador de paginas
+            int quantidadePáginasLivres = 0;
+
+            /// No array de páginas, verifica quais ainda estão livres para serem usadas
+            for (int i = 0; i < numFrames && paginasUsadasNoPrograma.size() < qtnPaginas; i++) {
                 if (!paginasUsadas.get(i)) {
-                    qtnTrue++;
-                    paginasLivres.add(i);
+                    quantidadePáginasLivres++;
+                    paginasUsadasNoPrograma.add(i);
                 }
             }
 
+            /// Verifca se a quantidade de páginas livre é suficiente para alocar o novo programa, retornando o número de páginas livre. NÃO ALOCA NADA ATÉ AQUI
+            if (quantidadePáginasLivres >= qtnPaginas)  {
+                gmp.aloca(frame, tamPg, paginasUsadasNoPrograma); /// Chama metodo que aloca paginação
 
-            // Verifica se o número de paginas livres é maior ou igual ao número de páginas requisitas, caso não, retorna vazio
-            if (qtnTrue >= qtnPaginas) return paginasLivres;
+                return paginasUsadasNoPrograma;
+            }
 
-            // devolve vetor -> tabela de paginas do processo  (convencionar). Deve existir função de carga que receve um nome de programa e uma tabela de paginas, lê as páginas e carrega na memoria --> esse função interna possui uma costante do tamanho do frame da página, quando carga sabe o tamanhoo e a tabela, ela pode carregar --- > O gerente processos tem que criar (retorna processo) e remover (remove processo), cria instancia de PCB {id, tabela de páginas, estado de execução....}
-            // página é por processo -> tabela de página temos a página inicial e a final que será utilziado para desalocar o programa
-            // SO tem que saber o estado de cada quadro, saber quem esta livre e quem esta ocupado (gerente de memoria precisa saber)
         }
+
         return null;
     }
 
+
+
+
+    @Override
+    public ArrayList<Integer> aloca(int frame, int tamPg, ArrayList<Integer> paginasUsadas) {
+        return null;
+    }
+
+    @Override
+    public void traduzEndereco(int endereco, ArrayList<Integer> tabelaPaginas) {
+        int pagina = endereco / tamPg;
+
+        if(pagina >= paginasUsadas.size()){
+            throw new RuntimeException("Acesso a inválido (posição inválida).");
+        }
+
+        int offset = endereco % tamPg;
+        int frame = tabelaPaginas.get(pagina);
+        int enderecoFisico = frame * tamPg + offset; // Feito para acessar a memória fisica, garante acessar a página correta do programa especificado
+
+
+
+    }
+
     // T1-A1.2
-    // A partir da posição do array de paginas a serem liberadas, desaloca (define como falso) a posição referente a ele.
+    /// A partir da posição do array de paginas a serem liberadas, desaloca (define como falso) a posição referente a ele.
     @Override
     public void desaloca(ArrayList<Integer> pagianasASeremDesalocadas) {
         for (int index : pagianasASeremDesalocadas) {
-            paginasUsadas.set(index, false);
+            paginasUsadas.set(index, false); /// Apenas torna a página a qual o programa esta alocada como false, ou seja, ela está disponível para ser usada/sobescrita
         }
     }
 
@@ -93,11 +126,13 @@ public class Sistema implements GerenciadorMemoria {
 
         // T1-A Metodo de traducao de endereço
 
-        public int traduzEndereco(int enderecoLogico) {
+        public int traduzEndereco(int enderecoLogico) { //feito de forma simples
+
+
             int pagina = enderecoLogico / tamPg;
             int offset = enderecoLogico % tamPg;
 
-            int frame = pagina; // mapeamento direto
+            frame = pagina; // mapeamento direto
 
             return frame * tamPg + offset;
         }
@@ -561,11 +596,11 @@ public class Sistema implements GerenciadorMemoria {
     // T1-A Implementação do Gerente de Memoria - Adiçao do tamPg e numFrames
     public Sistema(int tamMem, int tamPag) {
 
-        this.tamMem = tamMem;
-        this.tamPg = tamPag;
+        Sistema.tamMem = tamMem;
+        tamPg = tamPag;
 
-        // T1-A Cálculo do número de frames da memória
-        this.numFrames = tamMem / tamPg;
+        /// T1-A Cálculo do número de frames da memória, caso seja valor quebrado, arredonda para cima
+        numFrames =  Math.ceil((double) tamMem / tamPg);
 
         hardWare = new HardWare(tamMem); // memoria do HW tem tamMem palavras
         sistemaOperacional = new SistemaOperacional(hardWare);

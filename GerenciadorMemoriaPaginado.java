@@ -5,45 +5,46 @@ public class GerenciadorMemoriaPaginado implements GerenciadorMemoria {
     private int tamMem;
     private int tamPg;
     private int numFrames;
-    private boolean[] framesLivres;
+    private static int initFrame = 0;
+    private static int finalFrame = 0;
+    private static ArrayList<Integer> framesAlocados;
+
 
     public GerenciadorMemoriaPaginado(int tamMem, int tamPg) {
         this.tamMem = tamMem;
         this.tamPg = tamPg;
         this.numFrames = tamMem / tamPg;
 
-        framesLivres = new boolean[numFrames];
-
-        // inicialmente todos os frames estão livres
-        for (int i = 0; i < numFrames; i++) {
-            framesLivres[i] = true;
-        }
+        framesAlocados = new ArrayList<>(numFrames);
     }
 
     @Override
     public ArrayList<Integer> aloca(int nroPalavras) {
+        return null;
+    }
 
-        int paginasNecessarias = (int) Math.ceil((double) nroPalavras / tamPg);
 
-        ArrayList<Integer> framesAlocados = new ArrayList<>();
+    /// Refatorado: Como no nosso gerenciador do sistema já calculamos se é possível alocar ou não, a lógica foi removida.
+    /// Agora aqui só alocamos onde o programa começa, e retorna a posição dele na tabela de paginação
+    @Override
+    public ArrayList<Integer> aloca(int frame, int tamPg, ArrayList<Integer> paginasUsadas) {
 
-        // procura frames livres
-        for (int i = 0; i < numFrames && framesAlocados.size() < paginasNecessarias; i++) {
-            if (framesLivres[i]) {
-                framesLivres[i] = false;
-                framesAlocados.add(i);
-            }
+        ArrayList<Integer> framesAlocadosProPrograma = new ArrayList<>();
+
+        for (Integer paginasUsada : paginasUsadas) {
+            initFrame = paginasUsada * tamPg;
+            ///finalFrame = initFrame + tamPg - 1; não utilizado porém formula para saber onde programa acaba
+
+            framesAlocados.add(initFrame);
+            framesAlocadosProPrograma.add(initFrame);
         }
 
-        // se não conseguiu todos, desfaz
-        if (framesAlocados.size() < paginasNecessarias) {
-            for (int frame : framesAlocados) {
-                framesLivres[frame] = true;
-            }
-            return null;
-        }
+        return framesAlocadosProPrograma;
+    }
 
-        return framesAlocados;
+    @Override
+    public void traduzEndereco(int endereco, ArrayList<Integer> tabelaPaginas) {
+
     }
 
     @Override
@@ -51,7 +52,7 @@ public class GerenciadorMemoriaPaginado implements GerenciadorMemoria {
 
         for (int frame : tabelaPaginas) {
             if (frame >= 0 && frame < numFrames) {
-                framesLivres[frame] = true;
+                framesAlocados.set(frame, null);
             }
         }
     }
@@ -60,7 +61,7 @@ public class GerenciadorMemoriaPaginado implements GerenciadorMemoria {
     public void imprimeEstadoMemoria() {
         System.out.println("Estado dos frames:");
         for (int i = 0; i < numFrames; i++) {
-            System.out.println("Frame " + i + ": " + (framesLivres[i] ? "Livre" : "Ocupado"));
+            System.out.println("Frame " + i + ": " + (framesAlocados.get(i) == null ? "Livre" : "Ocupado"));
         }
     }
 
