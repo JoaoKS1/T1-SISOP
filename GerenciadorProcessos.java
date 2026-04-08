@@ -4,26 +4,31 @@ public class GerenciadorProcessos {
 
     private int proximoId = 1;
     private List<ProcessControlBlock> filaProntos = new ArrayList<>();
-    private GerenciadorMemoria gm;
+    private GerenteMemoria gm;
 
-    public GerenciadorProcessos(GerenciadorMemoria gm) {
-        this.gm = gm;
+
+    public  GerenciadorProcessos(int numFrame, int tamPg){
+        gm = new GerenteMemoria(numFrame, tamPg);
     }
 
-    public ProcessControlBlock criaProcesso(int tamanhoPrograma) {
+
+    public boolean criaProcesso(int tamanhoPrograma) {
+
+        if(tamanhoPrograma > 128) return false;
+
+        ///  CARREGA PROGRAMA ( carrega pelo gerenciador de memoria paginado)
+        ArrayList<Integer> paginasAlocadas = gm.aloca(tamanhoPrograma);
+
+        // Verifica se foi possível alocar
+        if(paginasAlocadas.isEmpty()) {
+            System.out.println("Memória insuficiente!");
+            return false;
+        }
 
         ProcessControlBlock pcb = new ProcessControlBlock(proximoId++);
 
-        ArrayList<Integer> tabelaPaginas = gm.aloca(tamanhoPrograma);
-
-        // verifica se conseguiu alocar
-        if (tabelaPaginas == null) {
-            System.out.println("Memória insuficiente!");
-            return null;
-        }
-
         // salva no PCB
-        pcb.tabelaPaginas = tabelaPaginas;
+        pcb.tabelaPaginas = paginasAlocadas;
 
         pcb.estado = "PRONTO";
         pcb.pc = 0;
@@ -31,10 +36,10 @@ public class GerenciadorProcessos {
         filaProntos.add(pcb);
 
         System.out.println("Processo criado: " + pcb.id);
-        return pcb;
+        return true;
     }
 
-    public void removeProcesso(ProcessControlBlock pcb) {
+    public void desaloca(ProcessControlBlock pcb) {
         gm.desaloca(pcb.tabelaPaginas);
         filaProntos.remove(pcb);
 
