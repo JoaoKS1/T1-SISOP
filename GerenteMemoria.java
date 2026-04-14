@@ -5,12 +5,14 @@ public class GerenteMemoria implements GerenciadorMemoria{
     private static int tamPg;
     private static ArrayList<Boolean> paginasUsadas = new ArrayList<>(tamPg);
     private static int frame;
-    private static GerenciadorMemoriaPaginado gmp = new GerenciadorMemoriaPaginado(Sistema.tamMem, tamPg);
+    private static GerenciadorMemoriaPaginado gmp = new GerenciadorMemoriaPaginado(Sistema.tamMem, Sistema.tamPg);
     private static ArrayList<Integer> paginasUsadasNoPrograma = new ArrayList<>();
 
 
+    public GerenteMemoria(){
+    }
 
-    public GerenteMemoria(int numFrame, int tamPg) {
+    public static void defineValores(int numFrame, int tamPg) {
         GerenteMemoria.numFrames = numFrame;
         GerenteMemoria.tamPg = tamPg;
     }

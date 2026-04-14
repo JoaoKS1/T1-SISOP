@@ -4,11 +4,11 @@ public class GerenciadorProcessos {
 
     private int proximoId = 1;
     private List<ProcessControlBlock> filaProntos = new ArrayList<>();
-    private GerenteMemoria gm;
+    private GerenteMemoria gm = new GerenteMemoria();
 
 
     public  GerenciadorProcessos(int numFrame, int tamPg){
-        gm = new GerenteMemoria(numFrame, tamPg);
+        gm.defineValores(numFrame, tamPg);
     }
 
 

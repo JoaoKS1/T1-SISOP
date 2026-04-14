@@ -1,4 +1,6 @@
 import java.util.ArrayList;
+import java.util.Locale;
+import java.util.Scanner;
 
 public class Sistema {
 
@@ -7,10 +9,11 @@ public class Sistema {
     public static int tamPg;
     public static double numFrames;
     public static int frame;
-    public static GerenciadorMemoriaPaginado gmp = new GerenciadorMemoriaPaginado(tamMem, tamPg);
+    public static GerenciadorMemoriaPaginado gmp;
     public static GerenciadorProcessos gp;
     public static GerenteMemoria gm;
 
+    /// Atual alocação de memória no nosso programa
     public class Memory {
         public Word[] posicao; // pos[i] é a posição i da memória. cada posição é uma palavra.
 
@@ -21,6 +24,42 @@ public class Sistema {
             }
             ; // cada posicao da memoria inicializada
         }
+    }
+
+
+    /// Comando terminal
+    public void comandosTerminal(){
+        String comando = " ";
+        Scanner in = new Scanner(System.in);
+        while(!(comando.equalsIgnoreCase("exit"))){
+            comando = in.nextLine();
+
+            comando = comando.toLowerCase();
+            if(comando.startsWith("rm")){
+                int id = Integer.parseInt(comando.substring(3));
+                /// FAZ O QUE TEM QUE SER FEITO
+            }else if(comando.equals("ps")){
+                /// FAZ O QUE TEM QUE SER FEITO
+            }else if(comando.equals("dump")){
+                /// FAZ O QUE TEM QUE SER FEITO
+            }else if(comando.startsWith("dumpM")){
+                int id1 = Integer.parseInt(comando.substring(3));
+                int id2; /// Pegar os demais valor (cuidar limite - negativo e valores grandes demais)
+                /// FAZ O QUE TEM QUE SER FEITO
+            }else if(comando.startsWith("exec")){
+                int id = Integer.parseInt(comando.substring(3));
+                /// FAZ O QUE TEM QUE SER FEITO
+            }else if(comando.equals("traceon")){
+                int id = Integer.parseInt(comando.substring(3));
+                /// FAZ O QUE TEM QUE SER FEITO
+            }else if(comando.equals("traceoff")){
+                /// FAZ O QUE TEM QUE SER FEITO
+            }
+
+        }
+
+
+
     }
 
     public class Word { // cada posicao da memoria tem uma instrucao (ou um dado)
@@ -151,8 +190,8 @@ public class Sistema {
                     // local de accesso a memoria - FETCH
 
                     // T1-A Implementando a tradução no Fetch da memoria
-                    int enderecoFisico = traduzEndereco(pc);
-                    instructionRegister = memoriaFisica[enderecoFisico];
+                    int enderecoFisico = traduzEndereco(pc); ///  Usar o de memória páginado para pega endereço correto
+                    instructionRegister = memoriaFisica[enderecoFisico]; /// Recupera do array de memória paginado
 
                     // guarda em ir
                     // resto é dump de debug
@@ -541,7 +580,7 @@ public class Sistema {
         programas = new Programs();
     }
 
-    // inicialisação e run da Maquina Virtual
+    // inicialização e run da Maquina Virtual
 
     public void run() {
 

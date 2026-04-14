@@ -1,3 +1,4 @@
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 
 public class GerenciadorMemoriaPaginado implements GerenciadorMemoria {
@@ -44,12 +45,17 @@ public class GerenciadorMemoriaPaginado implements GerenciadorMemoria {
 
     @Override
     public void traduzEndereco(int endereco, ArrayList<Integer> tabelaPaginas) {
-
+        ArrayList<int[]> enderecoTraduzido = new ArrayList<>();
+        for (Integer pagina : tabelaPaginas) {
+            int enderecoNovo = (int) Math.ceil(pagina / tamPg); /// Acha a página desejada -> Pega maior valor se divisão for quebrada
+            int offset = pagina % tamPg; /// Deslocamento dentro da pagina
+            int[] enderecoCompleto = {enderecoNovo, offset};
+            enderecoTraduzido.add(enderecoCompleto);
+        }
     }
 
     @Override
     public void desaloca(ArrayList<Integer> tabelaPaginas) {
-
         for (int frame : tabelaPaginas) {
             if (frame >= 0 && frame < numFrames) {
                 framesAlocados.set(frame, null);
