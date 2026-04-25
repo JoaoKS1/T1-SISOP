@@ -1,55 +1,198 @@
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class GerenciadorProcessos {
 
     private int proximoId = 1;
-    private List<ProcessControlBlock> filaProntos = new ArrayList<>();
+    private final List<ProcessControlBlock> filaProntos;
+    private ProcessControlBlock processoRodando;
+    private final Object lock = new Object();
+
     public static Map<Integer, ProcessControlBlock> listaProcessBlock = new HashMap<>();
 
-    private GerenteMemoria gm = new GerenteMemoria();
+    private final GerenteMemoria gm = new GerenteMemoria();
+    private final Sistema sistema;
 
+    public GerenciadorProcessos(int tamMemoria, int tamPg, Sistema sistema) {
+        this.sistema = sistema;
+        this.filaProntos = sistema.sistemaOperacional.ready;
 
-    public  GerenciadorProcessos(int numFrame, int tamPg){
-        gm.defineValores(numFrame, tamPg);
+        int numFrames = (int) Math.ceil((double) tamMemoria / tamPg);
+        GerenteMemoria.defineValores(numFrames, tamPg);
     }
 
-
-    public boolean criaProcesso(int tamanhoPrograma) {
-
-        if(tamanhoPrograma > 128) return false;
-
-        ///  CARREGA PROGRAMA ( carrega pelo gerenciador de memoria paginado)
-        ArrayList<Integer> paginasAlocadas = gm.aloca(tamanhoPrograma);
-
-        // Verifica se foi possível alocar
-        if(paginasAlocadas.isEmpty()) {
-            System.out.println("Memória insuficiente!");
+    public boolean criaProcesso(String nomePrograma, Sistema.Word[] programa) {
+        if (programa == null || programa.length == 0) {
+            System.out.println("Programa invalido.");
             return false;
         }
 
-        // Cria e salva o pcb
+        ArrayList<Integer> paginasAlocadas = gm.aloca(programa.length);
+        if (paginasAlocadas == null || paginasAlocadas.isEmpty()) {
+            System.out.println("Memoria insuficiente para criar o processo.");
+            return false;
+        }
 
-        ProcessControlBlock pcb = new ProcessControlBlock(proximoId, paginasAlocadas, "PRONTO" );
-        listaProcessBlock.put(proximoId, pcb);
-        proximoId++;
-        filaProntos.add(pcb);
+        sistema.sistemaOperacional.utils.loadProgramPaged(programa, paginasAlocadas);
 
-        System.out.println("Processo criado: " + pcb.id);
+        synchronized (lock) {
+            ProcessControlBlock pcb = new ProcessControlBlock(proximoId, nomePrograma, programa, paginasAlocadas, "PRONTO");
+            listaProcessBlock.put(proximoId, pcb);
+            filaProntos.add(pcb);
+            System.out.println("Processo criado: " + pcb.id + " (" + nomePrograma + ")");
+            proximoId++;
+        }
         return true;
     }
 
     public void desaloca(int id) {
-        ProcessControlBlock pcb = listaProcessBlock.get(id);
-        gm.desaloca(pcb.tabelaPaginas);
-        filaProntos.remove(pcb);
+        synchronized (lock) {
+            ProcessControlBlock pcb = listaProcessBlock.get(id);
+            if (pcb == null) {
+                System.out.println("Processo " + id + " nao encontrado.");
+                return;
+            }
 
-        System.out.println("Processo removido: " + pcb.id);
-    }
+            gm.desaloca(pcb.tabelaPaginas);
+            filaProntos.remove(pcb);
 
-    public void listarProcessos() {
-        for (ProcessControlBlock pcb : filaProntos) {
-            System.out.println("ID: " + pcb.id + " Estado: " + pcb.estado);
+            if (processoRodando != null && processoRodando.id == id) {
+                processoRodando = null;
+                sistema.sistemaOperacional.running = null;
+            }
+
+            listaProcessBlock.remove(id);
+            System.out.println("Processo removido: " + pcb.id);
         }
     }
 
+    public void listarProcessos() {
+        synchronized (lock) {
+            if (listaProcessBlock.isEmpty()) {
+                System.out.println("Sem processos no sistema.");
+                return;
+            }
+
+            for (Map.Entry<Integer, ProcessControlBlock> entry : listaProcessBlock.entrySet()) {
+                ProcessControlBlock pcb = entry.getValue();
+                String fila = (processoRodando != null && processoRodando.id == pcb.id)
+                        ? "RUNNING"
+                        : (filaProntos.contains(pcb) ? "READY" : "OUTRA");
+                System.out.println("ID: " + pcb.id + " Programa: " + pcb.nomePrograma + " Estado: " + pcb.estado + " Fila: " + fila + " Paginas: " + pcb.tabelaPaginas);
+            }
+        }
+    }
+
+    public void dumpProcesso(int id) {
+        ProcessControlBlock pcb;
+        synchronized (lock) {
+            pcb = listaProcessBlock.get(id);
+        }
+
+        if (pcb == null) {
+            System.out.println("Processo " + id + " nao encontrado.");
+            return;
+        }
+
+        System.out.println("PCB => id=" + pcb.id + ", programa=" + pcb.nomePrograma + ", estado=" + pcb.estado + ", pc=" + pcb.pc + ", tabelaPaginas=" + pcb.tabelaPaginas);
+
+        int totalPalavras = pcb.imagemPrograma.length;
+        for (int i = 0; i < totalPalavras; i++) {
+            int pagina = i / Sistema.tamPg;
+            int offset = i % Sistema.tamPg;
+            int frame = pcb.tabelaPaginas.get(pagina);
+            int enderecoFisico = frame * Sistema.tamPg + offset;
+            System.out.print(enderecoFisico + ":  ");
+            sistema.sistemaOperacional.utils.dump(sistema.hardWare.memoria.posicao[enderecoFisico]);
+        }
+    }
+
+    public void executaProcesso(int id) {
+        ProcessControlBlock pcb;
+        synchronized (lock) {
+            pcb = listaProcessBlock.get(id);
+            if (pcb == null) {
+                System.out.println("Processo " + id + " nao encontrado.");
+                return;
+            }
+
+            if (!filaProntos.remove(pcb) && processoRodando != pcb) {
+                System.out.println("Processo " + id + " nao esta apto para execucao.");
+                return;
+            }
+        }
+
+        // Executa o processo solicitado até terminar, em fatias delta.
+        while (true) {
+            executaFatia(pcb);
+            synchronized (lock) {
+                if (!listaProcessBlock.containsKey(id)) {
+                    return;
+                }
+                filaProntos.remove(pcb);
+            }
+        }
+    }
+
+    public void executaTodosEscalonados() {
+        while (true) {
+            ProcessControlBlock pcb;
+            synchronized (lock) {
+                if (filaProntos.isEmpty()) {
+                    break;
+                }
+                if (processoRodando != null) {
+                    break;
+                }
+                pcb = filaProntos.remove(0);
+            }
+
+            executaFatia(pcb);
+        }
+    }
+
+    public void passoEscalonadorContinuo() {
+        ProcessControlBlock pcb;
+        synchronized (lock) {
+            if (!sistema.sistemaOperacional.escalonadorAtivo) {
+                return;
+            }
+            if (processoRodando != null || filaProntos.isEmpty()) {
+                return;
+            }
+            pcb = filaProntos.remove(0);
+        }
+
+        executaFatia(pcb);
+    }
+
+    private void executaFatia(ProcessControlBlock pcb) {
+        synchronized (lock) {
+            processoRodando = pcb;
+            sistema.sistemaOperacional.running = pcb;
+            pcb.estado = "EXECUTANDO";
+        }
+
+        sistema.hardWare.cpu.setContext(pcb.pc, pcb.tabelaPaginas, pcb.registradores);
+        sistema.hardWare.cpu.run(sistema.sistemaOperacional.delta);
+
+        synchronized (lock) {
+            pcb.pc = sistema.hardWare.cpu.getPc();
+            pcb.registradores = sistema.hardWare.cpu.getRegistradoresSnapshot();
+
+            if (sistema.hardWare.cpu.parouPorStop()) {
+                gm.desaloca(pcb.tabelaPaginas);
+                listaProcessBlock.remove(pcb.id);
+                System.out.println("Processo finalizado e removido: " + pcb.id);
+            } else {
+                pcb.estado = "PRONTO";
+                filaProntos.add(pcb);
+            }
+
+            processoRodando = null;
+            sistema.sistemaOperacional.running = null;
+        }
+    }
 }

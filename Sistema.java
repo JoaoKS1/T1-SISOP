@@ -11,6 +11,8 @@ public class Sistema {
     public static GerenciadorMemoriaPaginado gmp;
     public static GerenciadorProcessos gp;
     public static GerenteMemoria gm;
+    public static Thread threadEscalonador;
+    public static Sistema sistemaAtual;
 
     /// Atual alocação de memória no nosso programa
     public class Memory {
@@ -27,58 +29,113 @@ public class Sistema {
 
 
     /// Comando terminal
-    public static void comandosTerminal(){
-        String comando = " ";
+    public static void comandosTerminal() {
+        String comando = "";
         Scanner in = new Scanner(System.in);
-        while(!(comando.equalsIgnoreCase("exit"))){
+
+        while (!comando.equalsIgnoreCase("exit")) {
             ComandosTerminal.showCommandsTerminal();
             System.out.print("| ");
-            comando = in.nextLine();
 
-            comando = comando.toLowerCase();
-            if(comando.startsWith("rm")){
-                int id = Integer.parseInt(comando.substring(3));
-                gp.desaloca(id);
-                /// removeProcesso(id);
-
-
-            }else if(comando.equals("ps")){
-                gp.listarProcessos();
-
-            }else if(comando.equals("dump")){
-                int id = Integer.parseInt(comando.substring(5));
-
-                /// listaConteudoPCB()
-
-
-            }else if(comando.startsWith("dumpM")){
-                int id1 = Integer.parseInt(comando.substring(3));
-                int id2; /// Pegar os demais valor (cuidar limite - negativo e valores grandes demais)
-                /// FAZ O QUE TEM QUE SER FEITO
-
-
-            }else if(comando.startsWith("exec")){
-                int id = Integer.parseInt(comando.substring(3));
-                /// FAZ O QUE TEM QUE SER FEITO
-
-
-            }else if(comando.equals("traceon")){
-                int id = Integer.parseInt(comando.substring(3));
-                /// FAZ O QUE TEM QUE SER FEITO
-
-
-            }else if(comando.equals("traceoff")){
-                /// FAZ O QUE TEM QUE SER FEITO
-
-
+            if (!in.hasNextLine()) {
+                break;
             }
 
+            comando = in.nextLine().trim();
+            if (comando.isEmpty()) {
+                continue;
+            }
+
+            String[] partes = comando.split("\\s+");
+            String acao = partes[0].toLowerCase();
+
+            try {
+                switch (acao) {
+                    case "new":
+                        if (partes.length < 2) {
+                            System.out.println("Uso: new <nomeDePrograma>");
+                            break;
+                        }
+                        String nomePrograma = partes[1];
+                        Word[] programa = sistemaAtual.programas.retrieveProgram(nomePrograma);
+                        if (programa == null) {
+                            System.out.println("Programa nao encontrado: " + nomePrograma);
+                            break;
+                        }
+                        gp.criaProcesso(nomePrograma, programa);
+                        break;
+
+                    case "rm":
+                        if (partes.length < 2) {
+                            System.out.println("Uso: rm <id>");
+                            break;
+                        }
+                        gp.desaloca(Integer.parseInt(partes[1]));
+                        break;
+
+                    case "ps":
+                        gp.listarProcessos();
+                        break;
+
+                    case "dump":
+                        if (partes.length < 2) {
+                            System.out.println("Uso: dump <id>");
+                            break;
+                        }
+                        gp.dumpProcesso(Integer.parseInt(partes[1]));
+                        break;
+
+                    case "dumpm":
+                        if (partes.length < 3) {
+                            System.out.println("Uso: dumpM <inicio> <fim>");
+                            break;
+                        }
+                        int inicio = Integer.parseInt(partes[1].replace(",", ""));
+                        int fim = Integer.parseInt(partes[2].replace(",", ""));
+                        if (inicio < 0 || fim > tamMem || inicio >= fim) {
+                            System.out.println("Intervalo invalido.");
+                            break;
+                        }
+                        sistemaAtual.sistemaOperacional.utils.dump(inicio, fim);
+                        break;
+
+                    case "exec":
+                        if (partes.length < 2) {
+                            System.out.println("Uso: exec <id>");
+                            break;
+                        }
+                        gp.executaProcesso(Integer.parseInt(partes[1]));
+                        break;
+
+                    case "execall":
+                        gp.executaTodosEscalonados();
+                        break;
+
+                    case "traceon":
+                        sistemaAtual.hardWare.cpu.setDebug(true);
+                        System.out.println("Trace ativado.");
+                        break;
+
+                    case "traceoff":
+                        sistemaAtual.hardWare.cpu.setDebug(false);
+                        System.out.println("Trace desativado.");
+                        break;
+
+                    case "exit":
+                        pararEscalonador();
+                        break;
+
+                    default:
+                        System.out.println("Comando invalido.");
+                }
+            } catch (NumberFormatException e) {
+                System.out.println("Parametro numerico invalido.");
+            }
         }
 
-
-
+        in.close();
+        System.out.println("Sistema encerrado.");
     }
-
     public class Word { // cada posicao da memoria tem uma instrucao (ou um dado)
         public Opcode opcode; // código de operação
         public int registradorA; // indice do primeiro registrador da operacao (Rs ou Rd cfe opcode na tabela)
@@ -114,14 +171,21 @@ public class Sistema {
         private int minInt;
 
         // T1-A Metodo de traducao de endereço
+        private ArrayList<Integer> tabelaPaginasProcessoAtual;
 
-        public int traduzEndereco(int enderecoLogico) { //feito de forma simples
-
-
+        public int traduzEndereco(int enderecoLogico) {
             int pagina = enderecoLogico / tamPg;
             int offset = enderecoLogico % tamPg;
 
-            frame = pagina; // mapeamento direto
+            if (tabelaPaginasProcessoAtual == null) {
+                frame = pagina;
+            } else {
+                if (pagina < 0 || pagina >= tabelaPaginasProcessoAtual.size()) {
+                    interrupcoes = Interrupts.intEnderecoInvalido;
+                    return -1;
+                }
+                frame = tabelaPaginasProcessoAtual.get(pagina);
+            }
 
             return frame * tamPg + offset;
         }
@@ -143,6 +207,9 @@ public class Sistema {
         private SysCallHandling sysCall; // significa desvio para tratamento de chamadas de sistema
 
         private boolean cpuStop; // flag para parar CPU - caso de interrupcao que acaba o processo, ou chamada
+        private int limiteInstrucoes; // quantum para escalonamento
+        private int instrucoesExecutadas;
+        private boolean stopPorStop;
 
         // auxilio aa depuração
         private boolean debug; // se true entao mostra cada instrucao em execucao
@@ -189,16 +256,52 @@ public class Sistema {
             ;
             return true;
         }
+        public void setContext(int _pc, ArrayList<Integer> tabelaPaginas) {
+            setContext(_pc, tabelaPaginas, null);
+        }
 
-        public void setContext(int _pc) { // usado para setar o contexto da cpu para rodar um processo
-            // [ nesta versao é somente colocar o PC na posicao 0 ]
-            pc = _pc; // pc cfe endereco logico
-            interrupcoes = Interrupts.noInterrupt; // reset da interrupcao registrada
+        public void setContext(int _pc, ArrayList<Integer> tabelaPaginas, int[] regs) {
+            pc = _pc;
+            tabelaPaginasProcessoAtual = tabelaPaginas;
+            interrupcoes = Interrupts.noInterrupt;
+
+            if (regs != null && regs.length == registradores.length) {
+                for (int i = 0; i < registradores.length; i++) {
+                    registradores[i] = regs[i];
+                }
+            }
+        }
+
+        public int getPc() {
+            return pc;
+        }
+
+        public int[] getRegistradoresSnapshot() {
+            int[] copia = new int[registradores.length];
+            for (int i = 0; i < registradores.length; i++) {
+                copia[i] = registradores[i];
+            }
+            return copia;
+        }
+
+        public boolean parouPorStop() {
+            return stopPorStop;
+        }
+
+        public void setDebug(boolean debug) {
+            this.debug = debug;
+        }
+
+        public void run(int deltaInstrucoes) {
+            limiteInstrucoes = deltaInstrucoes;
+            run();
         }
 
         public void run() { // execucao da CPU supoe que o contexto da CPU, vide acima,
             // esta devidamente setado
             cpuStop = false;
+            instrucoesExecutadas = 0;
+            stopPorStop = false;
             while (!cpuStop) { // ciclo de instrucoes. acaba cfe resultado da exec da instrucao, veja cada
 
                 // FASE DE FETCH
@@ -417,6 +520,7 @@ public class Sistema {
 
                         case STOP: // por enquanto, para execucao
                             sysCall.stop();
+                            stopPorStop = true;
                             cpuStop = true;
                             break;
 
@@ -424,6 +528,11 @@ public class Sistema {
                         default:
                             interrupcoes = Interrupts.intInstrucaoInvalida;
                             break;
+                    }
+
+                    instrucoesExecutadas++;
+                    if (!cpuStop && limiteInstrucoes > 0 && instrucoesExecutadas >= limiteInstrucoes) {
+                        cpuStop = true;
                     }
                 }
                 // VERIFICA INTERRUPÇÃO !!! - TERCEIRA FASE DO CICLO DE INSTRUÇÕES
@@ -443,7 +552,7 @@ public class Sistema {
 
         public HardWare(int tamMem) {
             memoria = new Memory(tamMem);
-            cpu = new CPU(memoria, true); // true liga debug
+            cpu = new CPU(memoria, false); // true liga debug
         }
     }
 
@@ -507,24 +616,19 @@ public class Sistema {
             hardWare = _hardware;
         }
 
-        private void loadProgram(Word[] posicao) { //Aloca sempre no inicio da memória
+        public void loadProgramPaged(Word[] programa, ArrayList<Integer> tabelaPaginas) {
             Word[] memoria = hardWare.memoria.posicao;
-            for (int i = 0; i < posicao.length; i++) {
-                memoria[i].opcode = posicao[i].opcode;
-                memoria[i].registradorA = posicao[i].registradorA;
-                memoria[i].registradorB = posicao[i].registradorB;
-                memoria[i].parametro = posicao[i].parametro;
-            }
-        }
 
-        private void loadProgram2(Word[] posicao, ArrayList<Integer> posicoes, int nroPalavrasASeremAlocadas ) { //Aloca sempre no inicio da memória
-            ArrayList<Integer> posicaoesParaAlocar = gm.aloca(nroPalavrasASeremAlocadas);
-            Word[] memoria = hardWare.memoria.posicao;
-            for (int i = 0; i < posicao.length; i++) {
-                memoria[i].opcode = posicao[i].opcode;
-                memoria[i].registradorA = posicao[i].registradorA;
-                memoria[i].registradorB = posicao[i].registradorB;
-                memoria[i].parametro = posicao[i].parametro;
+            for (int i = 0; i < programa.length; i++) {
+                int pagina = i / tamPg;
+                int offset = i % tamPg;
+                int frame = tabelaPaginas.get(pagina);
+                int enderecoFisico = frame * tamPg + offset;
+
+                memoria[enderecoFisico].opcode = programa[i].opcode;
+                memoria[enderecoFisico].registradorA = programa[i].registradorA;
+                memoria[enderecoFisico].registradorB = programa[i].registradorB;
+                memoria[enderecoFisico].parametro = programa[i].parametro;
             }
         }
 
@@ -549,16 +653,21 @@ public class Sistema {
                 dump(memoria[i]);
             }
         }
-
-        private void loadAndExec(Word[] p) {
-            loadProgram(p); // carga do programa na memoria
+        public void execProcesso(Word[] programa, ArrayList<Integer> tabelaPaginas, int pcInicial) {
             System.out.println("---------------------------------- programa carregado na memoria");
-            dump(0, p.length); // dump da memoria nestas posicoes
-            hardWare.cpu.setContext(0); // seta pc para endereço 0 - ponto de entrada dos programas
-            System.out.println("---------------------------------- inicia execucao ");
-            hardWare.cpu.run(); // cpu roda programa ate parar
-            System.out.println("---------------------------------- memoria após execucao ");
-            dump(0, p.length); // dump da memoria com resultado
+            hardWare.cpu.setContext(pcInicial, tabelaPaginas);
+            System.out.println("---------------------------------- inicia execucao");
+            hardWare.cpu.run();
+            System.out.println("---------------------------------- memoria apos execucao");
+
+            for (int i = 0; i < programa.length; i++) {
+                int pagina = i / tamPg;
+                int offset = i % tamPg;
+                int frame = tabelaPaginas.get(pagina);
+                int enderecoFisico = frame * tamPg + offset;
+                System.out.print(enderecoFisico + ":  ");
+                dump(hardWare.memoria.posicao[enderecoFisico]);
+            }
         }
     }
 
@@ -566,12 +675,20 @@ public class Sistema {
         public InterruptHandling iterruptHandling;
         public SysCallHandling sysCallHandling;
         public Utilities utils;
+        public ProcessControlBlock running;
+        public ArrayList<ProcessControlBlock> ready;
+        public boolean escalonadorAtivo;
+        public int delta;
 
         public SistemaOperacional(HardWare hardWare) {
             iterruptHandling = new InterruptHandling(hardWare); // rotinas de tratamento de int
             sysCallHandling = new SysCallHandling(hardWare); // chamadas de sistema
             hardWare.cpu.setAddressOfHandlers(iterruptHandling, sysCallHandling);
             utils = new Utilities(hardWare);
+            running = null;
+            ready = new ArrayList<>();
+            escalonadorAtivo = true;
+            delta = 5;
         }
     }
 
@@ -600,30 +717,46 @@ public class Sistema {
     // inicialização e run da Maquina Virtual
 
     public void run() {
-
-        //sistemaOperacional.utils.loadAndExec();
-        gp.criaProcesso(programas.retrieveProgram("fatorialV2").length);
-        gp.criaProcesso(programas.retrieveProgram("fibonacci10").length);
-
-        // sistemaOperacional.utils.loadAndExec(progs.retrieveProgram("fatorial"));
-        // fibonacci10,
-        // fibonacci10v2,
-        // progMinimo,
-        // fatorialWRITE, // saida
-        // fibonacciREAD, // entrada
-        // PB
-        // PC, // bubble sort
+        System.out.println("Sistema inicializado. Crie processos manualmente com o comando new.");
     }
     // Fim do Sistema
 
     // Instancia e testa sistema
     public static void main(String args[]) {
         Sistema sistema = new Sistema(1024, 8);
-        gp = new GerenciadorProcessos(1024,8);
+        sistemaAtual = sistema;
+        gp = new GerenciadorProcessos(1024, 8, sistema);
         sistema.run();
         comandosTerminal();
+    }
 
+    private static void iniciarEscalonador() {
+        if (threadEscalonador != null && threadEscalonador.isAlive()) {
+            return;
+        }
 
+        threadEscalonador = new Thread(() -> {
+            while (sistemaAtual != null && sistemaAtual.sistemaOperacional.escalonadorAtivo) {
+                gp.passoEscalonadorContinuo();
+                try {
+                    Thread.sleep(20);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        });
+        threadEscalonador.setDaemon(true);
+        threadEscalonador.start();
+    }
+
+    private static void pararEscalonador() {
+        if (sistemaAtual != null) {
+            sistemaAtual.sistemaOperacional.escalonadorAtivo = false;
+        }
+        if (threadEscalonador != null) {
+            threadEscalonador.interrupt();
+        }
     }
 
     // Programas - não fazem parte do sistema
@@ -644,7 +777,7 @@ public class Sistema {
 
         public Word[] retrieveProgram(String programaName) {
             for (Program programa : progs) {
-                if (programa != null && programa.name == programaName)
+                if (programa != null && programa.name.equalsIgnoreCase(programaName))
                     return programa.image;
             }
             return null;
@@ -933,3 +1066,19 @@ public class Sistema {
         };
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
