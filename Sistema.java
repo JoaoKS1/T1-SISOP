@@ -1,5 +1,4 @@
 import java.util.ArrayList;
-import java.util.Locale;
 import java.util.Scanner;
 
 public class Sistema {
@@ -28,32 +27,50 @@ public class Sistema {
 
 
     /// Comando terminal
-    public void comandosTerminal(){
+    public static void comandosTerminal(){
         String comando = " ";
         Scanner in = new Scanner(System.in);
         while(!(comando.equalsIgnoreCase("exit"))){
+            ComandosTerminal.showCommandsTerminal();
+            System.out.print("| ");
             comando = in.nextLine();
 
             comando = comando.toLowerCase();
             if(comando.startsWith("rm")){
                 int id = Integer.parseInt(comando.substring(3));
-                /// FAZ O QUE TEM QUE SER FEITO
+                gp.desaloca(id);
+                /// removeProcesso(id);
+
+
             }else if(comando.equals("ps")){
-                /// FAZ O QUE TEM QUE SER FEITO
+                gp.listarProcessos();
+
             }else if(comando.equals("dump")){
-                /// FAZ O QUE TEM QUE SER FEITO
+                int id = Integer.parseInt(comando.substring(5));
+
+                /// listaConteudoPCB()
+
+
             }else if(comando.startsWith("dumpM")){
                 int id1 = Integer.parseInt(comando.substring(3));
                 int id2; /// Pegar os demais valor (cuidar limite - negativo e valores grandes demais)
                 /// FAZ O QUE TEM QUE SER FEITO
+
+
             }else if(comando.startsWith("exec")){
                 int id = Integer.parseInt(comando.substring(3));
                 /// FAZ O QUE TEM QUE SER FEITO
+
+
             }else if(comando.equals("traceon")){
                 int id = Integer.parseInt(comando.substring(3));
                 /// FAZ O QUE TEM QUE SER FEITO
+
+
             }else if(comando.equals("traceoff")){
                 /// FAZ O QUE TEM QUE SER FEITO
+
+
             }
 
         }
@@ -584,7 +601,9 @@ public class Sistema {
 
     public void run() {
 
-        sistemaOperacional.utils.loadAndExec(programas.retrieveProgram("fatorialV2"));
+        //sistemaOperacional.utils.loadAndExec();
+        gp.criaProcesso(programas.retrieveProgram("fatorialV2").length);
+        gp.criaProcesso(programas.retrieveProgram("fibonacci10").length);
 
         // sistemaOperacional.utils.loadAndExec(progs.retrieveProgram("fatorial"));
         // fibonacci10,
@@ -602,6 +621,9 @@ public class Sistema {
         Sistema sistema = new Sistema(1024, 8);
         gp = new GerenciadorProcessos(1024,8);
         sistema.run();
+        comandosTerminal();
+
+
     }
 
     // Programas - não fazem parte do sistema

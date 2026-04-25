@@ -19,6 +19,10 @@ public class GerenciadorMemoriaPaginado implements GerenciadorMemoria {
         framesAlocados = new ArrayList<>(numFrames);
     }
 
+    public GerenciadorMemoriaPaginado() {
+
+    }
+
     @Override
     public ArrayList<Integer> aloca(int nroPalavras) {
         return null;
@@ -70,6 +74,8 @@ public class GerenciadorMemoriaPaginado implements GerenciadorMemoria {
             System.out.println("Frame " + i + ": " + (framesAlocados.get(i) == null ? "Livre" : "Ocupado"));
         }
     }
+
+
 
     // getter útil pro resto do sistema
     public int getTamPg() {

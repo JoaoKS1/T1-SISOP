@@ -3,9 +3,9 @@ import java.util.ArrayList;
 public class GerenteMemoria implements GerenciadorMemoria{
     private static  double numFrames = 0;
     private static int tamPg;
-    private static ArrayList<Boolean> paginasUsadas = new ArrayList<>(tamPg);
+    private static ArrayList<Boolean> paginasUsadas;
     private static int frame;
-    private static GerenciadorMemoriaPaginado gmp = new GerenciadorMemoriaPaginado(Sistema.tamMem, Sistema.tamPg);
+    private static GerenciadorMemoriaPaginado gmp = new GerenciadorMemoriaPaginado();
     private static ArrayList<Integer> paginasUsadasNoPrograma = new ArrayList<>();
 
 
@@ -15,6 +15,11 @@ public class GerenteMemoria implements GerenciadorMemoria{
     public static void defineValores(int numFrame, int tamPg) {
         GerenteMemoria.numFrames = numFrame;
         GerenteMemoria.tamPg = tamPg;
+        new GerenciadorMemoriaPaginado(Sistema.tamMem, Sistema.tamPg);
+        paginasUsadas = new ArrayList<>(tamPg);
+        for (int i = 0; i<tamPg; i++){
+            paginasUsadas.add(Boolean.FALSE);
+        }
     }
 
     // T1-A1.2 Gerenciador de memória responsável por proucurar as páginas livres e fornecer o tamanho dos frames para o GM paginado
@@ -74,6 +79,12 @@ public class GerenteMemoria implements GerenciadorMemoria{
 
 
     }
+
+
+    public static void processosExecutando(){
+
+    }
+
 
     // T1-A1.2
     /// A partir da posição do array de paginas a serem liberadas, desaloca (define como falso) a posição referente a ele.

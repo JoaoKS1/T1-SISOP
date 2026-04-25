@@ -4,6 +4,8 @@ public class GerenciadorProcessos {
 
     private int proximoId = 1;
     private List<ProcessControlBlock> filaProntos = new ArrayList<>();
+    public static Map<Integer, ProcessControlBlock> listaProcessBlock = new HashMap<>();
+
     private GerenteMemoria gm = new GerenteMemoria();
 
 
@@ -25,21 +27,19 @@ public class GerenciadorProcessos {
             return false;
         }
 
-        ProcessControlBlock pcb = new ProcessControlBlock(proximoId++);
+        // Cria e salva o pcb
 
-        // salva no PCB
-        pcb.tabelaPaginas = paginasAlocadas;
-
-        pcb.estado = "PRONTO";
-        pcb.pc = 0;
-
+        ProcessControlBlock pcb = new ProcessControlBlock(proximoId, paginasAlocadas, "PRONTO" );
+        listaProcessBlock.put(proximoId, pcb);
+        proximoId++;
         filaProntos.add(pcb);
 
         System.out.println("Processo criado: " + pcb.id);
         return true;
     }
 
-    public void desaloca(ProcessControlBlock pcb) {
+    public void desaloca(int id) {
+        ProcessControlBlock pcb = listaProcessBlock.get(id);
         gm.desaloca(pcb.tabelaPaginas);
         filaProntos.remove(pcb);
 
@@ -51,4 +51,5 @@ public class GerenciadorProcessos {
             System.out.println("ID: " + pcb.id + " Estado: " + pcb.estado);
         }
     }
+
 }
