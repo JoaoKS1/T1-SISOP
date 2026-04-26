@@ -571,6 +571,11 @@ public class Sistema {
         public void handle(Interrupts interrupcoes) {
             // apenas avisa - todas interrupcoes neste momento finalizam o programa
             System.out.println("Interrupcao " + interrupcoes + "   pc: " + hardWare.cpu.pc);
+            // precisa desalocar o processo que está rodando
+            if (gp != null && sistemaAtual.sistemaOperacional.running != null) {
+                int id = sistemaAtual.sistemaOperacional.running.id;
+                gp.desaloca(id);
+    }
         }
     }
 
