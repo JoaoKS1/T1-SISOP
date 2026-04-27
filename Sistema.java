@@ -732,6 +732,7 @@ public class Sistema {
         sistemaAtual = sistema;
         gp = new GerenciadorProcessos(1024, 8, sistema);
         sistema.run();
+        //iniciarEscalonador();
         comandosTerminal();
     }
 

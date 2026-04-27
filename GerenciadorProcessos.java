@@ -137,12 +137,15 @@ public class GerenciadorProcessos {
     }
 
     public void executaTodosEscalonados() {
+        System.out.println("Iniciando execução escalonada de todos os processos...");
         while (true) {
             ProcessControlBlock pcb;
             synchronized (lock) {
                 if (filaProntos.isEmpty()) {
+                    System.out.println("Todos os processos finalizados.");
                     break;
                 }
+                //tirar esse if será ?
                 if (processoRodando != null) {
                     break;
                 }
