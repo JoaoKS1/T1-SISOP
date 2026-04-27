@@ -1,7 +1,8 @@
 import java.util.ArrayList;
 import java.util.Scanner;
+import java.util.Timer;
 
-public class Sistema {
+public class Sistema extends Thread{
 
     /// T1-A Criaçao das variaveis de Gerenciamento de memoria - tamMem e tamPg
     public static int tamMem;
@@ -108,6 +109,11 @@ public class Sistema {
                         break;
 
                     case "execall":
+                        try{
+                            Thread.sleep(5000);
+                        }catch (InterruptedException e){
+                            Thread.currentThread().interrupt();
+                        }
                         gp.executaTodosEscalonados();
                         break;
 
@@ -732,7 +738,7 @@ public class Sistema {
         sistemaAtual = sistema;
         gp = new GerenciadorProcessos(1024, 8, sistema);
         sistema.run();
-        //iniciarEscalonador();
+        iniciarEscalonador();
         comandosTerminal();
     }
 

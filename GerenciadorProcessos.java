@@ -3,7 +3,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class GerenciadorProcessos {
+public class GerenciadorProcessos extends Thread {
 
     private int proximoId = 1;
     private final List<ProcessControlBlock> filaProntos;
@@ -137,23 +137,11 @@ public class GerenciadorProcessos {
     }
 
     public void executaTodosEscalonados() {
-        System.out.println("Iniciando execução escalonada de todos os processos...");
-        while (true) {
-            ProcessControlBlock pcb;
-            synchronized (lock) {
-                if (filaProntos.isEmpty()) {
-                    System.out.println("Todos os processos finalizados.");
-                    break;
-                }
-                //tirar esse if será ?
-                if (processoRodando != null) {
-                    break;
-                }
-                pcb = filaProntos.remove(0);
-            }
+        sistema.start();
+        ExecutaTudoEscalonador executaTudoEscalonador = new ExecutaTudoEscalonador();
+        ExecutaTudoEscalonador.ExecutaTudo();
+        executaTudoEscalonador.start();
 
-            executaFatia(pcb);
-        }
     }
 
     public void passoEscalonadorContinuo() {
