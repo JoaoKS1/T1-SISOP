@@ -177,6 +177,13 @@ public class GerenciadorProcessos extends Thread {
         sistema.hardWare.cpu.run(sistema.sistemaOperacional.delta);
 
         synchronized (lock) {
+            //Verifica se o processo ainda existe, pois pode ter sido removido por interrupção
+            if (!listaProcessBlock.containsKey(pcb.id)) {
+                processoRodando = null;
+                sistema.sistemaOperacional.running = null;
+                return;
+            }
+            
             pcb.pc = sistema.hardWare.cpu.getPc();
             pcb.registradores = sistema.hardWare.cpu.getRegistradoresSnapshot();
 

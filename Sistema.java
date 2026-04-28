@@ -30,6 +30,7 @@ public class Sistema extends Thread{
 
     /// Comando terminal
     public static void comandosTerminal() {
+        System.out.println("[Thread Terminal: " + Thread.currentThread().getName() + "]");
         String comando = "";
         Scanner in = new Scanner(System.in);
 
@@ -743,10 +744,12 @@ public class Sistema extends Thread{
         }
 
         threadEscalonador = new Thread(() -> {
+            //sout somente para debug
+            System.out.println("[Thread Escalonador iniciada: \" + Thread.currentThread().getName() + \"]");
             while (sistemaAtual != null && sistemaAtual.sistemaOperacional.escalonadorAtivo) {
                 gp.passoEscalonadorContinuo();
                 try {
-                    Thread.sleep(5000);
+                    Thread.sleep(2000);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     break;
