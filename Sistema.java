@@ -1,6 +1,5 @@
 import java.util.ArrayList;
 import java.util.Scanner;
-import java.util.Timer;
 
 public class Sistema extends Thread{
 
@@ -109,12 +108,8 @@ public class Sistema extends Thread{
                         break;
 
                     case "execall":
-                        try{
-                            Thread.sleep(5000);
-                        }catch (InterruptedException e){
-                            Thread.currentThread().interrupt();
-                        }
-                        gp.executaTodosEscalonados();
+                        ExecutaTudoEscalonador executador = new ExecutaTudoEscalonador(gp);
+                        executador.start(); //roda em Thread separada
                         break;
 
                     case "traceon":
@@ -751,7 +746,7 @@ public class Sistema extends Thread{
             while (sistemaAtual != null && sistemaAtual.sistemaOperacional.escalonadorAtivo) {
                 gp.passoEscalonadorContinuo();
                 try {
-                    Thread.sleep(20);
+                    Thread.sleep(5000);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     break;

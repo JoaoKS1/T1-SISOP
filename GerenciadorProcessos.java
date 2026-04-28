@@ -137,11 +137,18 @@ public class GerenciadorProcessos extends Thread {
     }
 
     public void executaTodosEscalonados() {
-        sistema.start();
-        ExecutaTudoEscalonador executaTudoEscalonador = new ExecutaTudoEscalonador();
-        ExecutaTudoEscalonador.ExecutaTudo();
-        executaTudoEscalonador.start();
-
+        System.out.println("Iniciando execução escalonada de todos os processos...");
+        while(true) {
+        ProcessControlBlock pcb;
+        synchronized (lock) {
+            if (filaProntos.isEmpty()) {
+                System.out.println("Todos os processos finalizados.");
+                break;
+            }
+            pcb = filaProntos.remove(0);    
+        }
+        executaFatia(pcb);
+        }
     }
 
     public void passoEscalonadorContinuo() {
