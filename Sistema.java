@@ -2,7 +2,7 @@ import java.util.ArrayList;
 import java.util.Scanner;
 import java.util.Timer;
 
-public class Sistema extends Thread{
+public class Sistema extends Thread {
 
     /// T1-A Criaçao das variaveis de Gerenciamento de memoria - tamMem e tamPg
     public static int tamMem;
@@ -11,7 +11,6 @@ public class Sistema extends Thread{
     public static int frame;
     public static GerenciadorMemoriaPaginado gmp;
     public static GerenciadorProcessos gp;
-    public static GerenteMemoria gm;
     public static Thread threadEscalonador;
     public static Sistema sistemaAtual;
 
@@ -24,7 +23,6 @@ public class Sistema extends Thread{
             for (int i = 0; i < posicao.length; i++) {
                 posicao[i] = new Word(Opcode.___, -1, -1, -1);
             }
-            ; // cada posicao da memoria inicializada
         }
     }
 
@@ -36,7 +34,6 @@ public class Sistema extends Thread{
 
         while (!comando.equalsIgnoreCase("exit")) {
             ComandosTerminal.showCommandsTerminal();
-            System.out.print("| ");
 
             if (!in.hasNextLine()) {
                 break;
@@ -47,101 +44,98 @@ public class Sistema extends Thread{
                 continue;
             }
 
+            //Selecionando o comando a ser utilizado no terminal
             String[] partes = comando.split("\\s+");
             String acao = partes[0].toLowerCase();
 
-            try {
-                switch (acao) {
-                    case "new":
-                        if (partes.length < 2) {
-                            System.out.println("Uso: new <nomeDePrograma>");
-                            break;
-                        }
-                        String nomePrograma = partes[1];
-                        Word[] programa = sistemaAtual.programas.retrieveProgram(nomePrograma);
-                        if (programa == null) {
-                            System.out.println("Programa nao encontrado: " + nomePrograma);
-                            break;
-                        }
-                        gp.criaProcesso(nomePrograma, programa);
+            // Comando as serem utilizados
+            switch (acao) {
+                case "new":
+                    if (partes.length < 2) {
+                        System.out.println("Uso: new <nomeDePrograma>");
                         break;
-
-                    case "rm":
-                        if (partes.length < 2) {
-                            System.out.println("Uso: rm <id>");
-                            break;
-                        }
-                        gp.desaloca(Integer.parseInt(partes[1]));
+                    }
+                    // A partir do nome do programa, seleciona ele dos programas
+                    String nomePrograma = partes[1];
+                    Word[] programa = sistemaAtual.programas.retrieveProgram(nomePrograma);
+                    if (programa == null) {
+                        System.out.println("Programa nao encontrado: " + nomePrograma);
                         break;
+                    }
+                    // Cria processo do programa
+                    gp.criaProcesso(nomePrograma, programa);
+                    break;
 
-                    case "ps":
-                        gp.listarProcessos();
+                case "rm":
+                    if (partes.length < 2) {
+                        System.out.println("Uso: rm <id>");
                         break;
+                    }
+                    gp.desaloca(Integer.parseInt(partes[1]));
+                    break;
 
-                    case "dump":
-                        if (partes.length < 2) {
-                            System.out.println("Uso: dump <id>");
-                            break;
-                        }
-                        gp.dumpProcesso(Integer.parseInt(partes[1]));
+                case "ps":
+                    gp.listarProcessos();
+                    break;
+
+                case "dump":
+                    if (partes.length < 2) {
+                        System.out.println("Uso: dump <id>");
                         break;
+                    }
+                    gp.dumpProcesso(Integer.parseInt(partes[1]));
+                    break;
 
-                    case "dumpm":
-                        if (partes.length < 3) {
-                            System.out.println("Uso: dumpM <inicio> <fim>");
-                            break;
-                        }
-                        int inicio = Integer.parseInt(partes[1].replace(",", ""));
-                        int fim = Integer.parseInt(partes[2].replace(",", ""));
-                        if (inicio < 0 || fim > tamMem || inicio >= fim) {
-                            System.out.println("Intervalo invalido.");
-                            break;
-                        }
-                        sistemaAtual.sistemaOperacional.utils.dump(inicio, fim);
+                case "dumpm":
+                    if (partes.length < 3) {
+                        System.out.println("Uso: dumpM <inicio> <fim>");
                         break;
-
-                    case "exec":
-                        if (partes.length < 2) {
-                            System.out.println("Uso: exec <id>");
-                            break;
-                        }
-                        gp.executaProcesso(Integer.parseInt(partes[1]));
+                    }
+                    int inicio = Integer.parseInt(partes[1].replace(",", ""));
+                    int fim = Integer.parseInt(partes[2].replace(",", ""));
+                    if (inicio < 0 || fim > tamMem || inicio >= fim) {
+                        System.out.println("Intervalo invalido.");
                         break;
+                    }
+                    sistemaAtual.sistemaOperacional.utils.dump(inicio, fim);
+                    break;
 
-                    case "execall":
-                        try{
-                            Thread.sleep(5000);
-                        }catch (InterruptedException e){
-                            Thread.currentThread().interrupt();
-                        }
-                        gp.executaTodosEscalonados();
+                case "exec":
+                    if (partes.length < 2) {
+                        System.out.println("Uso: exec <id>");
                         break;
+                    }
+                    gp.executaProcesso(Integer.parseInt(partes[1]));
+                    break;
 
-                    case "traceon":
-                        sistemaAtual.hardWare.cpu.setDebug(true);
-                        System.out.println("Trace ativado.");
-                        break;
+                case "execall":
+                    gp.executaTodosEscalonados();
+                    break;
 
-                    case "traceoff":
-                        sistemaAtual.hardWare.cpu.setDebug(false);
-                        System.out.println("Trace desativado.");
-                        break;
+                case "traceon":
+                    sistemaAtual.hardWare.cpu.setDebug(true);
+                    System.out.println("Trace ativado.");
+                    break;
 
-                    case "exit":
-                        pararEscalonador();
-                        break;
+                case "traceoff":
+                    sistemaAtual.hardWare.cpu.setDebug(false);
+                    System.out.println("Trace desativado.");
+                    break;
 
-                    default:
-                        System.out.println("Comando invalido.");
-                }
-            } catch (NumberFormatException e) {
-                System.out.println("Parametro numerico invalido.");
+                case "exit":
+                    pararEscalonador();
+                    break;
+
+                default:
+                    System.out.println("Comando invalido.");
             }
+
         }
 
         in.close();
         System.out.println("Sistema encerrado.");
     }
+
     public class Word { // cada posicao da memoria tem uma instrucao (ou um dado)
         public Opcode opcode; // código de operação
         public int registradorA; // indice do primeiro registrador da operacao (Rs ou Rd cfe opcode na tabela)
@@ -183,8 +177,10 @@ public class Sistema extends Thread{
             int pagina = enderecoLogico / tamPg;
             int offset = enderecoLogico % tamPg;
 
+            // Caso não haja paginas para serem lidas
             if (tabelaPaginasProcessoAtual == null) {
-                frame = pagina;
+                interrupcoes = Interrupts.intEnderecoInvalido;
+                return -1;
             } else {
                 if (pagina < 0 || pagina >= tabelaPaginasProcessoAtual.size()) {
                     interrupcoes = Interrupts.intEnderecoInvalido;
@@ -262,6 +258,7 @@ public class Sistema extends Thread{
             ;
             return true;
         }
+
         public void setContext(int _pc, ArrayList<Integer> tabelaPaginas) {
             setContext(_pc, tabelaPaginas, null);
         }
@@ -300,6 +297,8 @@ public class Sistema extends Thread{
 
         public void run(int deltaInstrucoes) {
             limiteInstrucoes = deltaInstrucoes;
+
+
             run();
         }
 
@@ -316,7 +315,13 @@ public class Sistema extends Thread{
                     // local de accesso a memoria - FETCH
 
                     // T1-A Implementando a tradução no Fetch da memoria
-                    int enderecoFisico = traduzEndereco(pc); ///  Usar o de memória páginado para pega endereço correto
+                    int enderecoFisico = traduzEndereco(pc);
+
+                    if (enderecoFisico < 0) {
+                        cpuStop = true;
+                        break;
+                    }
+
                     instructionRegister = memoriaFisica[enderecoFisico]; /// Recupera do array de memória paginado
 
                     // guarda em ir
@@ -526,8 +531,11 @@ public class Sistema extends Thread{
 
                         case STOP: // por enquanto, para execucao
                             sysCall.stop();
+
+
                             stopPorStop = true;
                             cpuStop = true;
+
                             break;
 
                         // Inexistente
@@ -575,13 +583,15 @@ public class Sistema extends Thread{
         }
 
         public void handle(Interrupts interrupcoes) {
+
             // apenas avisa - todas interrupcoes neste momento finalizam o programa
             System.out.println("Interrupcao " + interrupcoes + "   pc: " + hardWare.cpu.pc);
             // precisa desalocar o processo que está rodando
             if (gp != null && sistemaAtual.sistemaOperacional.running != null) {
                 int id = sistemaAtual.sistemaOperacional.running.id;
-                gp.desaloca(id);
-    }
+                sistemaAtual.sistemaOperacional.running = null;
+                //gp.desaloca(id);
+            }
         }
     }
 
@@ -605,7 +615,14 @@ public class Sistema extends Thread{
                     .println("SYSCALL pars:  " + hardWare.cpu.registradores[8] + " / " + hardWare.cpu.registradores[9]);
 
             if (hardWare.cpu.registradores[8] == 1) {
-                // leitura
+                Scanner in = new Scanner(System.in);
+                System.out.println("Input: ");
+                int valor = in.nextInt();
+                int enderecoFisico = hardWare.cpu.traduzEndereco(hardWare.cpu.registradores[9]);
+                if (enderecoFisico >= 0) {
+                    hardWare.memoria.posicao[enderecoFisico].opcode = Opcode.DATA;
+                    hardWare.memoria.posicao[enderecoFisico].parametro = valor;
+                }
 
             } else if (hardWare.cpu.registradores[8] == 2) {
                 // escrita - escreve o conteuodo da memoria na posicao dada em registradores[9]
@@ -627,6 +644,7 @@ public class Sistema extends Thread{
             hardWare = _hardware;
         }
 
+        // Alocando programa na memória
         public void loadProgramPaged(Word[] programa, ArrayList<Integer> tabelaPaginas) {
             Word[] memoria = hardWare.memoria.posicao;
 
@@ -664,6 +682,7 @@ public class Sistema extends Thread{
                 dump(memoria[i]);
             }
         }
+
         public void execProcesso(Word[] programa, ArrayList<Integer> tabelaPaginas, int pcInicial) {
             System.out.println("---------------------------------- programa carregado na memoria");
             hardWare.cpu.setContext(pcInicial, tabelaPaginas);
@@ -717,7 +736,7 @@ public class Sistema extends Thread{
         tamPg = tamPag;
 
         /// T1-A Cálculo do número de frames da memória, caso seja valor quebrado, arredonda para cima
-        numFrames =  Math.ceil((double) tamMem / tamPg);
+        numFrames = Math.ceil((double) tamMem / tamPg);
 
         hardWare = new HardWare(tamMem); // memoria do HW tem tamMem palavras
         sistemaOperacional = new SistemaOperacional(hardWare);
@@ -736,12 +755,14 @@ public class Sistema extends Thread{
     public static void main(String args[]) {
         Sistema sistema = new Sistema(1024, 8);
         sistemaAtual = sistema;
-        gp = new GerenciadorProcessos(1024, 8, sistema);
+        gp = new GerenciadorProcessos(sistema);
+        gmp = new GerenciadorMemoriaPaginado(1024, 8);
         sistema.run();
         iniciarEscalonador();
         comandosTerminal();
     }
 
+    // Processo de escalonamento
     private static void iniciarEscalonador() {
         if (threadEscalonador != null && threadEscalonador.isAlive()) {
             return;

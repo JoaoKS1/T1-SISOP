@@ -12,5 +12,7 @@ public class ComandosTerminal {
         System.out.println("- traceOn");
         System.out.println("- traceOff");
         System.out.println("- exit");
+        System.out.print("| ");
+
     }
 }

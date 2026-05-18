@@ -12,34 +12,37 @@ public class GerenciadorProcessos extends Thread {
 
     public static Map<Integer, ProcessControlBlock> listaProcessBlock = new HashMap<>();
 
-    private final GerenteMemoria gm = new GerenteMemoria();
+    private static GerenciadorMemoriaPaginado gmp;
     private final Sistema sistema;
 
-    public GerenciadorProcessos(int tamMemoria, int tamPg, Sistema sistema) {
+    public GerenciadorProcessos(Sistema sistema) {
         this.sistema = sistema;
         this.filaProntos = sistema.sistemaOperacional.ready;
 
-        int numFrames = (int) Math.ceil((double) tamMemoria / tamPg);
-        GerenteMemoria.defineValores(numFrames, tamPg);
+        int numFrames = (int) Math.ceil((double) Sistema.tamMem / Sistema.tamPg);
+        gmp = new GerenciadorMemoriaPaginado(numFrames, Sistema.tamPg);
     }
 
+    ///  Cria um processo no gerenciador de processo
     public boolean criaProcesso(String nomePrograma, Sistema.Word[] programa) {
-        if (programa == null || programa.length == 0) {
-            System.out.println("Programa invalido.");
-            return false;
-        }
 
-        ArrayList<Integer> paginasAlocadas = gm.aloca(programa.length);
-        if (paginasAlocadas == null || paginasAlocadas.isEmpty()) {
+        // Solicita alocação no gerenciador paginado
+        ArrayList<Integer> paginasAlocadas = Sistema.gmp.aloca(proximoId, programa.length);
+
+        if (paginasAlocadas == null) {
             System.out.println("Memoria insuficiente para criar o processo.");
             return false;
         }
 
+        // Um pcb pra ele
+        ProcessControlBlock pcb = new ProcessControlBlock(proximoId, nomePrograma, programa, paginasAlocadas, "PRONTO");
+
+        // Carrega programa
         sistema.sistemaOperacional.utils.loadProgramPaged(programa, paginasAlocadas);
 
+        // Seção crítica, impede que outra thread mexa nesse mesmo bloco do process block
         synchronized (lock) {
-            ProcessControlBlock pcb = new ProcessControlBlock(proximoId, nomePrograma, programa, paginasAlocadas, "PRONTO");
-            listaProcessBlock.put(proximoId, pcb);
+            listaProcessBlock.put(proximoId, pcb); // Salva processo e id dele
             filaProntos.add(pcb);
             System.out.println("Processo criado: " + pcb.id + " (" + nomePrograma + ")");
             proximoId++;
@@ -47,16 +50,23 @@ public class GerenciadorProcessos extends Thread {
         return true;
     }
 
+    ///  Desalocar um processo
     public void desaloca(int id) {
+        ProcessControlBlock pcb = listaProcessBlock.get(id);
+
+        // Seção critica
         synchronized (lock) {
-            ProcessControlBlock pcb = listaProcessBlock.get(id);
             if (pcb == null) {
                 System.out.println("Processo " + id + " nao encontrado.");
                 return;
             }
 
-            gm.desaloca(pcb.tabelaPaginas);
+            // Desalocar páginas
+            Sistema.gmp.desaloca(pcb.id);
+
+            // Remove processo
             filaProntos.remove(pcb);
+
 
             if (processoRodando != null && processoRodando.id == id) {
                 processoRodando = null;
@@ -68,6 +78,7 @@ public class GerenciadorProcessos extends Thread {
         }
     }
 
+    /// Listar processos do sitema
     public void listarProcessos() {
         synchronized (lock) {
             if (listaProcessBlock.isEmpty()) {
@@ -77,14 +88,14 @@ public class GerenciadorProcessos extends Thread {
 
             for (Map.Entry<Integer, ProcessControlBlock> entry : listaProcessBlock.entrySet()) {
                 ProcessControlBlock pcb = entry.getValue();
-                String fila = (processoRodando != null && processoRodando.id == pcb.id)
-                        ? "RUNNING"
-                        : (filaProntos.contains(pcb) ? "READY" : "OUTRA");
+                String fila = (processoRodando != null && processoRodando.id == pcb.id) ? "RUNNING" : (filaProntos.contains(pcb) ? "READY" : "OUTRA");
                 System.out.println("ID: " + pcb.id + " Programa: " + pcb.nomePrograma + " Estado: " + pcb.estado + " Fila: " + fila + " Paginas: " + pcb.tabelaPaginas);
             }
         }
     }
 
+
+    // Dump da memoria dos processos
     public void dumpProcesso(int id) {
         ProcessControlBlock pcb;
         synchronized (lock) {
@@ -109,38 +120,45 @@ public class GerenciadorProcessos extends Thread {
         }
     }
 
+    ///  Para executar um processo
     public void executaProcesso(int id) {
-        ProcessControlBlock pcb;
         synchronized (lock) {
-            pcb = listaProcessBlock.get(id);
+            ProcessControlBlock pcb = listaProcessBlock.get(id);
+
             if (pcb == null) {
                 System.out.println("Processo " + id + " nao encontrado.");
                 return;
             }
 
-            if (!filaProntos.remove(pcb) && processoRodando != pcb) {
-                System.out.println("Processo " + id + " nao esta apto para execucao.");
-                return;
+            if (!filaProntos.contains(pcb)) {
+                filaProntos.add(pcb);
             }
+            pcb.estado = "PRONTO";
+
         }
 
-        // Executa o processo solicitado até terminar, em fatias delta.
-        while (true) {
-            executaFatia(pcb);
-            synchronized (lock) {
-                if (!listaProcessBlock.containsKey(id)) {
-                    return;
-                }
-                filaProntos.remove(pcb);
-            }
-        }
     }
 
     public void executaTodosEscalonados() {
-        sistema.start();
-        ExecutaTudoEscalonador executaTudoEscalonador = new ExecutaTudoEscalonador();
-        ExecutaTudoEscalonador.ExecutaTudo();
-        executaTudoEscalonador.start();
+        while (true) {
+            ProcessControlBlock pcb = null;
+
+            synchronized (lock) {
+                if (!filaProntos.isEmpty()) {
+                    pcb = filaProntos.remove(0);
+                }
+
+            }
+            if (pcb == null) {
+                executaFatia(pcb);
+            }
+
+            try {
+                Thread.sleep(1);
+            } catch (Exception e) {
+            }
+        }
+
 
     }
 
@@ -154,36 +172,76 @@ public class GerenciadorProcessos extends Thread {
                 return;
             }
             pcb = filaProntos.remove(0);
+            processoRodando = pcb;
+            sistema.sistemaOperacional.running = pcb;
+            pcb.estado = "EXECUTANDO";
         }
 
         executaFatia(pcb);
     }
 
     private void executaFatia(ProcessControlBlock pcb) {
+
+
         synchronized (lock) {
             processoRodando = pcb;
             sistema.sistemaOperacional.running = pcb;
             pcb.estado = "EXECUTANDO";
         }
 
-        sistema.hardWare.cpu.setContext(pcb.pc, pcb.tabelaPaginas, pcb.registradores);
+
         sistema.hardWare.cpu.run(sistema.sistemaOperacional.delta);
+
+        // Salvando resultado
+        boolean terminouStop = sistema.hardWare.cpu.parouPorStop();
+
 
         synchronized (lock) {
             pcb.pc = sistema.hardWare.cpu.getPc();
             pcb.registradores = sistema.hardWare.cpu.getRegistradoresSnapshot();
 
-            if (sistema.hardWare.cpu.parouPorStop()) {
-                gm.desaloca(pcb.tabelaPaginas);
+            processoRodando = null;
+            sistema.sistemaOperacional.running = null;
+
+
+            if (terminouStop) {
+                pcb.estado = "FINALIZADO";
+                Sistema.gmp.desaloca(pcb.id);
                 listaProcessBlock.remove(pcb.id);
+
                 System.out.println("Processo finalizado e removido: " + pcb.id);
             } else {
                 pcb.estado = "PRONTO";
+
                 filaProntos.add(pcb);
+
+
             }
 
-            processoRodando = null;
-            sistema.sistemaOperacional.running = null;
         }
     }
+
+    public void executadoTudoEscalonador() {
+        while (true) {
+            ProcessControlBlock pcb;
+
+            synchronized (lock) {
+                if (filaProntos.isEmpty()) {
+
+                    if (listaProcessBlock.isEmpty()) {
+                        return;
+                    }
+                    continue;
+                }
+
+                pcb = filaProntos.remove(0);
+            }
+
+            executaFatia(pcb);
+
+        }
+
+    }
+
 }
+
